@@ -1,0 +1,372 @@
+<?php
+// ============================================================
+//  modules/schedules/add.php  —  Add a new schedule
+// ============================================================
+session_start();
+if (!isset($_SESSION['user_id'])) { header('Location: ../../login.php'); exit; }
+
+require_once '../../config/db.php';
+
+$courses     = $pdo->query("SELECT course_id, course_code, course_name FROM courses ORDER BY course_code ASC")->fetchAll();
+$sections    = $pdo->query(
+    "SELECT s.section_id, s.section_name, y.year_level
+     FROM sections s JOIN year_levels y ON s.year_id = y.year_id
+     ORDER BY y.year_id ASC, s.section_name ASC"
+)->fetchAll();
+
+$days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+$errors = [];
+$input  = [
+    'course_id'   => '',
+    'section_id'  => '',
+    'day_of_week' => '',
+    'time_start'  => '',
+    'time_end'    => '',
+    'room'        => '',
+    'school_year' => date('Y') . '-' . (date('Y') + 1),
+];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input['course_id']   = (int)   ($_POST['course_id']   ?? 0);
+    $input['section_id']  = (int)   ($_POST['section_id']  ?? 0);
+    $input['day_of_week'] = trim($_POST['day_of_week']  ?? '');
+    $input['time_start']  = trim($_POST['time_start']   ?? '');
+    $input['time_end']    = trim($_POST['time_end']     ?? '');
+    $input['room']        = trim($_POST['room']         ?? '');
+    $input['school_year'] = trim($_POST['school_year']  ?? '');
+
+    // Validate
+    if ($input['course_id']  === 0)              $errors[] = 'Please select a course.';
+    if ($input['section_id'] === 0)              $errors[] = 'Please select a section.';
+    if (!in_array($input['day_of_week'], $days)) $errors[] = 'Please select a valid day.';
+    if ($input['time_start'] === '')             $errors[] = 'Start time is required.';
+    if ($input['time_end']   === '')             $errors[] = 'End time is required.';
+    if ($input['room']       === '')             $errors[] = 'Room is required.';
+    if ($input['school_year'] === '')            $errors[] = 'School year is required.';
+
+    if (empty($errors) && $input['time_start'] >= $input['time_end']) {
+        $errors[] = 'End time must be after start time.';
+    }
+
+    // Conflict check: same section, same day, overlapping time
+    if (empty($errors)) {
+        $conflict = $pdo->prepare(
+            "SELECT COUNT(*) FROM schedules
+             WHERE section_id  = ?
+               AND day_of_week = ?
+               AND school_year = ?
+               AND time_start  < ?
+               AND time_end    > ?"
+        );
+        $conflict->execute([
+            $input['section_id'],
+            $input['day_of_week'],
+            $input['school_year'],
+            $input['time_end'],
+            $input['time_start'],
+        ]);
+        if ($conflict->fetchColumn() > 0) {
+            $errors[] = 'This section already has a schedule that overlaps with the selected time slot on ' . $input['day_of_week'] . '.';
+        }
+    }
+
+    if (empty($errors)) {
+        $stmt = $pdo->prepare(
+            "INSERT INTO schedules (course_id, section_id, day_of_week, time_start, time_end, room, school_year)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+        $stmt->execute([
+            $input['course_id'],
+            $input['section_id'],
+            $input['day_of_week'],
+            $input['time_start'],
+            $input['time_end'],
+            $input['room'],
+            $input['school_year'],
+        ]);
+        header('Location: index.php?success=added');
+        exit;
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Schedule — ORCA</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand:     #1a3a5c;
+      --brand-mid: #2b5f8e;
+      --accent:    #c8a96e;
+      --bg:        #f5f3ef;
+      --card-bg:   #ffffff;
+      --text:      #1c1c1e;
+      --muted:     #6b7280;
+      --border:    #dcd8d0;
+      --radius:    12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; }
+
+    .top-nav {
+      background: var(--brand); padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    }
+    .nav-brand { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: #fff; text-decoration: none; }
+    .nav-links { display: flex; align-items: center; gap: .25rem; list-style: none; }
+    .nav-links a {
+      color: rgba(255,255,255,.75); text-decoration: none; font-size: .875rem;
+      font-weight: 500; padding: .4rem .75rem; border-radius: 6px;
+      transition: background .15s, color .15s;
+    }
+    .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,.12); color: #fff; }
+    .nav-user { display: flex; align-items: center; gap: .75rem; font-size: .82rem; color: rgba(255,255,255,.65); }
+    .nav-user .badge-role {
+      background: rgba(200,169,110,.25); color: var(--accent);
+      border: 1px solid rgba(200,169,110,.35); border-radius: 20px;
+      padding: .15rem .6rem; font-size: .72rem; font-weight: 500;
+      letter-spacing: .05em; text-transform: uppercase;
+    }
+    .nav-user a {
+      color: rgba(255,255,255,.55); text-decoration: none; font-size: .82rem;
+      padding: .3rem .6rem; border-radius: 6px; border: 1px solid rgba(255,255,255,.18);
+      transition: background .15s, color .15s;
+    }
+    .nav-user a:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+    .page-wrap { max-width: 640px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    .page-header { margin-bottom: 1.75rem; }
+    .breadcrumb-nav {
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .8rem; color: var(--muted); margin-bottom: .75rem;
+    }
+    .breadcrumb-nav a { color: var(--muted); text-decoration: none; }
+    .breadcrumb-nav a:hover { color: var(--brand); }
+    .breadcrumb-nav span { color: var(--border); }
+    .page-header h2 { font-family: 'DM Serif Display', serif; font-size: 1.65rem; color: var(--brand); }
+    .accent-line { width: 40px; height: 3px; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: 2px; margin-top: .6rem; }
+
+    .form-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; }
+
+    .error-list {
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: .75rem 1rem;
+      margin-bottom: 1.5rem; font-size: .875rem; color: #991b1b;
+    }
+    .error-list ul { margin: .35rem 0 0 1rem; }
+    .error-list li { margin-bottom: .15rem; }
+
+    .field { margin-bottom: 1.25rem; }
+    .field label {
+      display: block; font-size: .78rem; font-weight: 500;
+      letter-spacing: .05em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: .4rem;
+    }
+    .field input, .field select {
+      width: 100%; padding: .65rem .85rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: .95rem; font-family: 'DM Sans', sans-serif;
+      color: var(--text); background: #fafaf8;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus, .field select:focus {
+      outline: none; border-color: var(--brand-mid);
+      box-shadow: 0 0 0 3px rgba(43,95,142,.12); background: #fff;
+    }
+    .field .hint { font-size: .77rem; color: var(--muted); margin-top: .35rem; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+    .divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 1.5rem 0 1.25rem;
+    }
+    .section-label {
+      font-size: .72rem; font-weight: 500; letter-spacing: .09em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+    }
+
+    .form-actions {
+      display: flex; align-items: center; gap: .75rem;
+      margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+    }
+    .btn-save {
+      padding: .65rem 1.4rem; background: var(--brand); color: #fff;
+      border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+      font-size: .925rem; font-weight: 500; cursor: pointer; transition: background .15s;
+    }
+    .btn-save:hover { background: var(--brand-mid); }
+    .btn-cancel {
+      padding: .65rem 1.1rem; background: transparent; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: .925rem;
+      text-decoration: none; transition: border-color .15s, color .15s;
+    }
+    .btn-cancel:hover { border-color: #b5b0a8; color: var(--text); }
+
+    .page-footer { text-align: center; margin-top: 3rem; font-size: .78rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <nav class="top-nav">
+    <a class="nav-brand" href="../../index.php">Organized Resource Course Access</a>
+    <ul class="nav-links">
+      <li><a href="../../index.php">Dashboard</a></li>
+      <li><a href="../courses/index.php">Courses</a></li>
+      <li><a href="../sections/index.php">Sections</a></li>
+      <li><a href="index.php" class="active">Schedules</a></li>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
+      <li><a href="../users/index.php">Users</a></li>
+      <?php endif; ?>
+    </ul>
+    <div class="nav-user">
+      <span><?= htmlspecialchars($_SESSION['username']) ?></span>
+      <span class="badge-role"><?= htmlspecialchars($_SESSION['role']) ?></span>
+      <a href="../../logout.php">Sign out</a>
+    </div>
+  </nav>
+
+  <div class="page-wrap">
+
+    <div class="page-header">
+      <nav class="breadcrumb-nav">
+        <a href="../../index.php">Dashboard</a>
+        <span>/</span>
+        <a href="index.php">Schedules</a>
+        <span>/</span>
+        <span>Add schedule</span>
+      </nav>
+      <h2>Add schedule</h2>
+      <div class="accent-line"></div>
+    </div>
+
+    <div class="form-card">
+
+      <?php if (!empty($errors)): ?>
+        <div class="error-list">
+          <strong>Please fix the following:</strong>
+          <ul>
+            <?php foreach ($errors as $e): ?>
+              <li><?= htmlspecialchars($e) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
+
+      <form method="POST" action="add.php" novalidate>
+
+        <!-- Assignment -->
+        <p class="section-label">Assignment</p>
+
+        <div class="field">
+          <label for="course_id">Course</label>
+          <select id="course_id" name="course_id" required>
+            <option value="">— Select course —</option>
+            <?php foreach ($courses as $c): ?>
+              <option value="<?= $c['course_id'] ?>" <?= $input['course_id'] == $c['course_id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($c['course_code'] . ' — ' . $c['course_name']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="section_id">Section</label>
+          <select id="section_id" name="section_id" required>
+            <option value="">— Select section —</option>
+            <?php
+            $current_year = '';
+            foreach ($sections as $s):
+              if ($s['year_level'] !== $current_year) {
+                if ($current_year !== '') echo '</optgroup>';
+                echo '<optgroup label="' . htmlspecialchars($s['year_level']) . '">';
+                $current_year = $s['year_level'];
+              }
+            ?>
+              <option value="<?= $s['section_id'] ?>" <?= $input['section_id'] == $s['section_id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($s['section_name']) ?>
+              </option>
+            <?php endforeach; ?>
+            <?php if ($current_year !== '') echo '</optgroup>'; ?>
+          </select>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Schedule details -->
+        <p class="section-label">Schedule details</p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="day_of_week">Day</label>
+            <select id="day_of_week" name="day_of_week" required>
+              <option value="">— Select day —</option>
+              <?php foreach ($days as $d): ?>
+                <option value="<?= $d ?>" <?= $input['day_of_week'] === $d ? 'selected' : '' ?>><?= $d ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="field">
+            <label for="school_year">School year</label>
+            <input
+              type="text"
+              id="school_year"
+              name="school_year"
+              value="<?= htmlspecialchars($input['school_year']) ?>"
+              placeholder="e.g. 2024-2025"
+              maxlength="20"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="time_start">Start time</label>
+            <input type="time" id="time_start" name="time_start" value="<?= htmlspecialchars($input['time_start']) ?>" required>
+          </div>
+          <div class="field">
+            <label for="time_end">End time</label>
+            <input type="time" id="time_end" name="time_end" value="<?= htmlspecialchars($input['time_end']) ?>" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="room">Room</label>
+          <input
+            type="text"
+            id="room"
+            name="room"
+            value="<?= htmlspecialchars($input['room']) ?>"
+            placeholder="e.g. Room 301"
+            maxlength="50"
+            required
+          >
+          <p class="hint">Building or room name where this class will be held.</p>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-save">Save schedule</button>
+          <a href="index.php" class="btn-cancel">Cancel</a>
+        </div>
+
+      </form>
+    </div>
+
+  </div>
+
+  <p class="page-footer">
+    Colegio De Sta. Teresa De Avila &mdash; School of Information Technology &copy; <?= date('Y') ?>
+  </p>
+
+</body>
+</html>
