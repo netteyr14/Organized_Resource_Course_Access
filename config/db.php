@@ -26,7 +26,7 @@ $options = [
 
 // Add SSL only if provided
 if (!empty($ssl_ca)) {
-    $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
+    $options[\PDO\MySQL::ATTR_SSL_CA] = $ssl_ca;
 }
 
 try {
