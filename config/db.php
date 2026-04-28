@@ -11,8 +11,8 @@ $user    = getenv('DB_USER');
 $pass    = getenv('DB_PASS');
 $charset = 'utf8mb4';
 
-// Aiven SSL certificate
-$ssl_ca  = getenv('AIVEN_CA_CERT');
+// Aiven SSL certificate. RENDER ENV
+$ssl_ca = '/etc/secrets/ca.pem';
 
 // Build DSN (include port)
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
@@ -26,7 +26,7 @@ $options = [
 
 // Add SSL only if provided
 if (!empty($ssl_ca)) {
-    $options[\PDO\MySQL::ATTR_SSL_CA] = $ssl_ca;
+    $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
 }
 
 try {
