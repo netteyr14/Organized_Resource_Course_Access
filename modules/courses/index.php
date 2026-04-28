@@ -14,7 +14,7 @@ $courses = $pdo->query("SELECT * FROM courses ORDER BY course_code ASC")->fetchA
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Courses — Courseware</title>
+  <title>Courses — ORCA</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -263,7 +263,7 @@ $courses = $pdo->query("SELECT * FROM courses ORDER BY course_code ASC")->fetchA
 <body>
 
   <nav class="top-nav">
-    <a class="nav-brand" href="../../index.php">Courseware</a>
+    <a class="nav-brand" href="../../index.php">Organized Resource Course Access</a>
     <ul class="nav-links">
       <li><a href="../../index.php">Dashboard</a></li>
       <li><a href="index.php" class="active">Courses</a></li>

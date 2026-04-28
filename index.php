@@ -21,7 +21,7 @@ foreach (['courses' => 'courses', 'sections' => 'sections', 'schedules' => 'sche
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard — Courseware</title>
+  <title>Dashboard — ORCA</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <style>
@@ -310,7 +310,7 @@ foreach (['courses' => 'courses', 'sections' => 'sections', 'schedules' => 'sche
 
   <!-- Navbar -->
   <nav class="top-nav">
-    <a class="nav-brand" href="index.php">Courseware</a>
+    <a class="nav-brand" href="index.php">Organized Resource Course Access</a>
     <ul class="nav-links">
       <li><a href="index.php" class="active">Dashboard</a></li>
       <li><a href="modules/courses/index.php">Courses</a></li>
