@@ -1,15 +1,18 @@
 <?php
 // ============================================================
-//  config/db.php  —  Database connection (PDO)
+//  config/db.php  —  Database connection (PDO, ENV-ready)
 // ============================================================
 
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'courseware_db');
-define('DB_USER', 'root');       // change to your MySQL user
-define('DB_PASS', '');           // change to your MySQL password
-define('DB_CHARSET', 'utf8mb4');
+// Load from Render environment variables
+$host    = getenv('DB_HOST');
+$dbname  = getenv('DB_NAME');
+$user    = getenv('DB_USER');
+$pass    = getenv('DB_PASS');
+$charset = getenv('DB_CHARSET') ?: 'utf8mb4';
+$ssl_ca  = getenv('DB_SSL_CA'); // optional but needed for Aiven
 
-$dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+// Build DSN
+$dsn = "mysql:host=$host;dbname=$dbname;charset=$charset";
 
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -17,10 +20,14 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 
+// Add SSL for Aiven if provided
+if ($ssl_ca) {
+    $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
+}
+
 try {
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+    $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    // In production, log the error instead of printing it
     error_log($e->getMessage());
-    die(json_encode(['error' => 'Database connection failed.']));
+    die(json_encode(['error' => 'Database connection failed']));
 }
