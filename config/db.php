@@ -11,7 +11,7 @@ $user    = getenv('DB_USER');
 $pass    = getenv('DB_PASS');
 $charset = 'utf8mb4';
 
-// Aiven SSL certificate. RENDER ENV
+// Aiven SSL certificate
 $ssl_ca = '/etc/secrets/ca.pem';
 
 // Build DSN (include port)
@@ -25,8 +25,12 @@ $options = [
 ];
 
 // Add SSL only if provided
-if (!empty($ssl_ca)) {
-    $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
+if (file_exists($ssl_ca)) {
+    $options[PDO::MYSQL_ATTR_SSL_CA]                  = $ssl_ca;
+    $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT]  = false; // Add this line
+} else {
+    // Helpful debug (you'll see this in error)
+    error_log("SSL CA file not found at: $ssl_ca");
 }
 
 try {
