@@ -32,6 +32,8 @@ if (!empty($ssl_ca)) {
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    error_log($e->getMessage());
-    die(json_encode(['error' => 'Database connection failed']));
+    die(json_encode([
+        'error' => 'Database connection failed',
+        'debug' => $e->getMessage()
+    ]));
 }
