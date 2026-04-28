@@ -10,6 +10,6 @@ RUN a2enmod rewrite
 COPY . /var/www/html/
 
 # Copy Aiven SSL cert if needed
-COPY certs/ca.pem /var/www/certs/ca.pem
+# COPY certs/ca.pem /var/www/certs/ca.pem
 
 EXPOSE 80
